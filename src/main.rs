@@ -4,26 +4,25 @@
 )]
 
 use freya::prelude::*;
+use futures::stream::{self, StreamExt};
 use jiff::Timestamp;
+use log::{error, info};
 use serde::Deserialize;
 
+mod components;
 mod utils;
+use components::story_detail_view::StoryDetailView;
+use components::story_list_view::StoryListView;
 
-use once_cell::sync::Lazy;
-use std::env;
+// --- Application Constants ---
+const BATCH_SIZE: usize = 20;
+const SCROLL_END_MARGIN: i32 = 150;
+const HN_BEST_STORIES_URL: &str = "https://hacker-news.firebaseio.com/v0/beststories.json";
+const HN_ITEM_URL_BASE: &str = "https://hacker-news.firebaseio.com/v0/item/";
 
-static DEBUG: Lazy<bool> = Lazy::new(|| {
-    env::var("FREYA_DEBUG")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
-});
-
-macro_rules! debug_log {
-    ($($arg:tt)*) => {
-        if *DEBUG {
-            println!($($arg)*);
-        }
-    };
+/// Generates the URL for a specific Hacker News item.
+fn hn_item_url(id: u32) -> String {
+    format!("{}{}.json", HN_ITEM_URL_BASE, id)
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -45,54 +44,35 @@ enum CurrentView {
     Detail,
 }
 
-mod components;
-use components::story_detail_view::StoryDetailView;
-use components::story_list_view::StoryListView;
-
 fn app() -> Element {
-    let stories_signal: Signal<Vec<Story>> = use_signal(Vec::new);
-    let error_signal: Signal<Option<String>> = use_signal(|| None);
+    let mut stories_signal: Signal<Vec<Story>> = use_signal(Vec::new);
+    let mut error_signal: Signal<Option<String>> = use_signal(|| None);
     let mut current_view = use_signal(|| CurrentView::List);
+    let mut loaded_count: Signal<usize> = use_signal(|| BATCH_SIZE);
+    let mut is_loading_more: Signal<bool> = use_signal(|| false);
     let selected_story_data: Signal<Option<Story>> = use_signal(|| None);
-    let loaded_count: Signal<usize> = use_signal(|| 20);
 
     let scroll_controller = use_scroll_controller(ScrollConfig::default);
 
-    const HN_BEST_STORIES_URL: &str = "https://hacker-news.firebaseio.com/v0/beststories.json";
-    const HN_ITEM_URL_BASE: &str = "https://hacker-news.firebaseio.com/v0/item/";
-
-    fn hn_item_url(id: u32) -> String {
-        format!("{}{}.json", HN_ITEM_URL_BASE, id)
-    }
-
+    // Resource to fetch the initial list of best story IDs.
     let best_story_ids_resource = use_resource(|| async move {
-        let url = HN_BEST_STORIES_URL;
-        println!("Fetching best story IDs...");
-        match reqwest::get(url).await {
-            Ok(response) => match response.json::<Vec<u32>>().await {
-                Ok(ids) => {
-                    println!("Fetched best story IDs: {:?}", ids);
-                    Ok(ids)
-                }
-                Err(e) => {
-                    println!("Failed to parse story IDs: {}", e);
-                    Err(format!("Failed to parse story IDs: {}", e))
-                }
-            },
-            Err(e) => {
-                println!("Failed to fetch best story IDs: {}", e);
-                Err(format!("Failed to fetch best story IDs: {}", e))
-            }
+        async fn fetch() -> Result<Vec<u32>, String> {
+            info!("Fetching best story IDs...");
+            let response = reqwest::get(HN_BEST_STORIES_URL)
+                .await
+                .map_err(|e| format!("Failed to fetch best story IDs: {}", e))?;
+            let ids = response
+                .json::<Vec<u32>>()
+                .await
+                .map_err(|e| format!("Failed to parse story IDs: {}", e))?;
+            info!("Successfully fetched {} story IDs", ids.len());
+            Ok(ids)
         }
+        fetch().await
     });
 
-    let is_loading_more: Signal<bool> = use_signal(|| false);
-
+    // Resource to fetch story details based on the IDs and `loaded_count`.
     let _ = use_resource({
-        let mut stories_signal = stories_signal;
-        let mut error_signal = error_signal;
-        let mut is_loading_more = is_loading_more;
-
         move || {
             let current_best_ids = best_story_ids_resource.value().read().as_ref().cloned();
             let loaded_count_val = *loaded_count.read();
@@ -102,43 +82,52 @@ fn app() -> Element {
                 if let Some(Ok(ids)) = current_best_ids {
                     if already_loaded < loaded_count_val && already_loaded < ids.len() {
                         is_loading_more.set(true);
-                        debug_log!("Starting to fetch story details. loaded_count: {}, already_loaded: {}, ids.len(): {}", loaded_count_val, already_loaded, ids.len());
-                        let mut new_stories = Vec::new();
-                        for &id in ids
+
+                        let ids_to_fetch = ids
                             .iter()
                             .skip(already_loaded)
-                            .take((loaded_count_val - already_loaded).min(20))
-                        {
-                            debug_log!("Fetching story with id: {}", id);
+                            .take(loaded_count_val - already_loaded)
+                            .cloned()
+                            .collect::<Vec<_>>();
+
+                        info!(
+                            "Fetching {} story details in parallel...",
+                            ids_to_fetch.len()
+                        );
+
+                        let stories_futures = ids_to_fetch.into_iter().map(|id| async move {
                             let story_url = hn_item_url(id);
                             match reqwest::get(&story_url).await {
-                                Ok(response) => match response.json::<Story>().await {
-                                    Ok(story) => {
-                                        debug_log!("Fetched story: {:?}", story);
-                                        new_stories.push(story)
-                                    }
-                                    Err(e) => {
-                                        debug_log!("Failed to parse story {}: {}", id, e);
-                                        error_signal.set(Some(format!(
-                                            "Failed to parse story {}: {}",
-                                            id, e
-                                        )));
-                                        break;
-                                    }
-                                },
-                                Err(e) => {
-                                    debug_log!("Failed to fetch story {}: {}", id, e);
-                                    error_signal
-                                        .set(Some(format!("Failed to fetch story {}: {}", id, e)));
-                                    break;
+                                Ok(response) => response
+                                    .json::<Story>()
+                                    .await
+                                    .map_err(|e| (id, e.to_string())),
+                                Err(e) => Err((id, e.to_string())),
+                            }
+                        });
+
+                        let results = stream::iter(stories_futures)
+                            .buffer_unordered(10) // Concurrently fetch up to 10 stories
+                            .collect::<Vec<_>>()
+                            .await;
+
+                        let mut new_stories = Vec::new();
+                        for result in results {
+                            match result {
+                                Ok(story) => new_stories.push(story),
+                                Err((id, e)) => {
+                                    let err_msg =
+                                        format!("Failed to fetch/parse story {}: {}", id, e);
+                                    error!("{}", err_msg);
+                                    error_signal.set(Some(err_msg));
                                 }
                             }
                         }
-                        let mut all_stories = stories_signal.read().clone();
-                        all_stories.extend(new_stories);
-                        debug_log!("Setting stories_signal with {} stories", all_stories.len());
-                        stories_signal.set(all_stories);
-                        error_signal.set(None);
+
+                        if !new_stories.is_empty() {
+                            stories_signal.write().extend(new_stories);
+                        }
+
                         is_loading_more.set(false);
                     }
                 }
@@ -146,33 +135,28 @@ fn app() -> Element {
         }
     });
 
-    {
-        let mut loaded_count = loaded_count;
-        use_effect(move || {
-            let y = scroll_controller.y();
-            let layout = scroll_controller.layout();
-            let y = y.read();
-            let layout = layout.read();
-            let end = layout.inner.height - layout.area.height();
-            const MARGIN: i32 = 100;
+    // Effect for infinite scrolling.
+    use_effect(move || {
+        let y = scroll_controller.y();
+        let layout = scroll_controller.layout();
+        let y_val = *y.read();
+        let layout_val = layout.read();
+        let end = layout_val.inner.height - layout_val.area.height();
 
-            if layout.inner.height > layout.area.height() && -*y > end as i32 - MARGIN {
-                if let Some(Ok(ids)) = best_story_ids_resource.value().read().as_ref() {
-                    let current = *loaded_count.read();
-                    let next = (current + 20).min(ids.len());
-                    if next > current {
-                        println!(
-                            "Infinite scroll: loaded_count before: {}, after: {}, ids.len(): {}",
-                            current,
-                            next,
-                            ids.len()
-                        );
-                        loaded_count.set(next);
-                    }
+        if !*is_loading_more.read()
+            && layout_val.inner.height > layout_val.area.height()
+            && -y_val > end as i32 - SCROLL_END_MARGIN
+        {
+            if let Some(Ok(ids)) = best_story_ids_resource.value().read().as_ref() {
+                let current = *loaded_count.read();
+                let next = (current + BATCH_SIZE).min(ids.len());
+                if next > current {
+                    info!("Infinite scroll triggered: loading up to {} stories.", next);
+                    loaded_count.set(next);
                 }
             }
-        });
-    }
+        }
+    });
 
     rsx! {
         rect {
@@ -223,5 +207,7 @@ fn app() -> Element {
 }
 
 fn main() {
-    launch_with_props(app, "Hackers News", (900.0, 900.0));
+    // Initialize the logger. Run with `RUST_LOG=info cargo run` to see logs.
+    env_logger::init();
+    launch_with_props(app, "Hacker News", (900.0, 900.0));
 }
