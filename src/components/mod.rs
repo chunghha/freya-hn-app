@@ -1,5 +1,9 @@
+pub mod card_footer;
 pub mod footer_label;
+pub mod icons;
 pub mod indication_label;
+pub mod info_line;
+pub mod primitives;
 pub mod story_card;
 pub mod story_detail_view;
 pub mod story_list_view;

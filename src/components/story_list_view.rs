@@ -1,4 +1,5 @@
 use crate::components::indication_label::IndicationLabel;
+use crate::components::primitives::ErrorView;
 use crate::components::story_card::StoryCard;
 use crate::{CurrentView, Story};
 use freya::prelude::*;
@@ -14,66 +15,41 @@ pub fn StoryListView(
     selected_story_data: Signal<Option<Story>>,
     scroll_controller: ScrollController,
 ) -> Element {
-    const ERROR_COLOR: &str = "red";
-    const ERROR_FONT_SIZE: &str = "16";
-    const ERROR_PADDING: &str = "10";
     const CONTAINER_WIDTH: &str = "100%";
     const SCROLL_HEIGHT: &str = "fill";
     const LOADING_TEXT: &str = "Loading best story IDs...";
     const FETCHING_TEXT: &str = "Fetching story details...";
     const LOADING_MORE_TEXT: &str = "Loading more stories...";
+    const NO_STORIES_TEXT: &str = "No stories found.";
 
     let content = if let Some(err) = error_signal.read().as_ref() {
-        rsx! {
-            rect {
-                width: CONTAINER_WIDTH,
-                padding: ERROR_PADDING,
-                main_align: "center",
-                label {
-                    color: ERROR_COLOR,
-                    font_size: ERROR_FONT_SIZE,
-                    "Error: {err}"
-                }
-            }
-        }
+        // Use the imported ErrorView component.
+        rsx! { ErrorView { message: err.clone() } }
     } else {
         match best_story_ids_resource.value().read().as_ref() {
-            None => rsx! {
-                IndicationLabel { text: LOADING_TEXT.to_string() }
-            },
-            Some(Err(err)) => rsx! {
-                rect {
-                    width: CONTAINER_WIDTH,
-                    padding: ERROR_PADDING,
-                    main_align: "center",
-                    label {
-                        color: ERROR_COLOR,
-                        font_size: ERROR_FONT_SIZE,
-                        "Error: {err}"
-                    }
-                }
-            },
+            None => rsx! { IndicationLabel { text: LOADING_TEXT.to_string() } },
+            Some(Err(err)) => rsx! { ErrorView { message: err.clone() } },
+            Some(Ok(ids)) if ids.is_empty() => {
+                rsx! { IndicationLabel { text: NO_STORIES_TEXT.to_string() } }
+            }
             Some(Ok(_)) => {
                 let stories = stories_signal.read();
                 if stories.is_empty() && !*is_loading_more.read() {
-                    rsx! {
-                        IndicationLabel { text: FETCHING_TEXT.to_string() }
-                    }
+                    rsx! { IndicationLabel { text: FETCHING_TEXT.to_string() } }
                 } else {
                     rsx! {
                         for story_item in stories.iter() {
                             StoryCard {
                                 story: story_item.clone(),
-                                // CORRECTED: Clone the story *inside* the `move` closure.
-                                // This ensures the closure is `FnMut` because it doesn't
-                                // consume its environment.
                                 on_select: {
+                                    let stories = stories_signal.read().clone();
                                     let mut selected_story_data = selected_story_data;
                                     let mut current_view = current_view;
-                                    let story = story_item.clone();
-                                    move |_| {
-                                        selected_story_data.set(Some(story.clone()));
-                                        current_view.set(CurrentView::Detail);
+                                    move |id: u32| {
+                                        if let Some(story) = stories.iter().find(|s| s.id == id) {
+                                            selected_story_data.set(Some(story.clone()));
+                                            current_view.set(CurrentView::Detail);
+                                        }
                                     }
                                 }
                             }

@@ -1,12 +1,12 @@
+use crate::components::icons::*;
+use crate::components::info_line::InfoLine;
+use crate::components::primitives::Spacer;
 use crate::utils::datetime::format_timestamp;
 use crate::Story;
 use freya::prelude::*;
 
 #[component]
-pub fn StoryDetailView(
-    story_data: ReadOnlySignal<Option<Story>>,
-    on_back: EventHandler<()>,
-) -> Element {
+pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<()>) -> Element {
     const DETAIL_PADDING: &str = "15";
     const DETAIL_BG: &str = "rgb(250, 250, 250)";
     const TITLE_FONT_SIZE: &str = "22";
@@ -15,8 +15,8 @@ pub fn StoryDetailView(
     const URL_FONT_SIZE: &str = "14";
     const URL_COLOR: &str = "rgb(0, 0, 200)";
     const INFO_FONT_SIZE: &str = "14";
-    const INFO_LABEL_HEIGHT: &str = "5";
-    const COMMENTS_LABEL_HEIGHT: &str = "20";
+    const VERTICAL_SPACER_HEIGHT: &str = "12";
+    const COMMENTS_SECTION_SPACER: &str = "20";
     const COMMENTS_TITLE_FONT_SIZE: &str = "16";
     const COMMENTS_TITLE_FONT_WEIGHT: &str = "bold";
     const COMMENTS_PLACEHOLDER_COLOR: &str = "rgb(100,100,100)";
@@ -34,14 +34,14 @@ pub fn StoryDetailView(
                     onclick: move |_| on_back.call(()),
                     label { "← Back to List" }
                 }
-                rect { height: INFO_LABEL_HEIGHT }
+                Spacer { height: VERTICAL_SPACER_HEIGHT }
 
-                if let Some(title) = &story.title {
-                    label { font_size: TITLE_FONT_SIZE, font_weight: TITLE_FONT_WEIGHT, "{title}" }
-                } else {
-                    label { font_size: TITLE_FONT_SIZE, font_weight: TITLE_FONT_WEIGHT, "{TITLE_PLACEHOLDER}" }
+                label {
+                    font_size: TITLE_FONT_SIZE,
+                    font_weight: TITLE_FONT_WEIGHT,
+                    "{story.title.as_deref().unwrap_or(TITLE_PLACEHOLDER)}"
                 }
-                rect { height: INFO_LABEL_HEIGHT }
+                Spacer { height: VERTICAL_SPACER_HEIGHT }
 
                 if let Some(url) = &story.url {
                     Link {
@@ -52,23 +52,45 @@ pub fn StoryDetailView(
                             "URL: {url}"
                         }
                     }
-                    rect { height: INFO_LABEL_HEIGHT }
+                    Spacer { height: VERTICAL_SPACER_HEIGHT }
                 }
 
-                label { font_size: INFO_FONT_SIZE, "Score: {story.score.unwrap_or(0)}" }
-                rect { height: INFO_LABEL_HEIGHT }
-                label { font_size: INFO_FONT_SIZE, {format!("By: {}", story.by.as_deref().unwrap_or("N/A"))} }
-                rect { height: INFO_LABEL_HEIGHT }
+                InfoLine {
+                    icon: rsx!{ IconScore {} },
+                    text: format!("Score: {}", story.score.unwrap_or(0))
+                }
+                Spacer { height: VERTICAL_SPACER_HEIGHT }
+
+                InfoLine {
+                    icon: rsx!{ IconUser {} },
+                    text: format!("By: {}", story.by.as_deref().unwrap_or("N/A"))
+                }
+                Spacer { height: VERTICAL_SPACER_HEIGHT }
 
                 if let Some(time) = &story.time {
-                    label { font_size: INFO_FONT_SIZE, "Time: {format_timestamp(time)}" }
-                    rect { height: INFO_LABEL_HEIGHT }
+                    InfoLine {
+                        icon: rsx!{ IconTime {} },
+                        text: format!("Time: {}", format_timestamp(time))
+                    }
+                    Spacer { height: VERTICAL_SPACER_HEIGHT }
                 }
-                label { font_size: INFO_FONT_SIZE, "Comments: {story.descendants.unwrap_or(0)}" }
 
-                rect { height: COMMENTS_LABEL_HEIGHT }
-                label { font_size: COMMENTS_TITLE_FONT_SIZE, font_weight: COMMENTS_TITLE_FONT_WEIGHT, "Comments:"}
-                label { font_size: INFO_FONT_SIZE, color: COMMENTS_PLACEHOLDER_COLOR, "(Comment fetching not yet implemented)"}
+                InfoLine {
+                    icon: rsx!{ IconComments {} },
+                    text: format!("Comments: {}", story.descendants.unwrap_or(0))
+                }
+
+                Spacer { height: COMMENTS_SECTION_SPACER }
+                label {
+                    font_size: COMMENTS_TITLE_FONT_SIZE,
+                    font_weight: COMMENTS_TITLE_FONT_WEIGHT,
+                    "Comments:"
+                }
+                label {
+                    font_size: INFO_FONT_SIZE,
+                    color: COMMENTS_PLACEHOLDER_COLOR,
+                    "(Comment fetching not yet implemented)"
+                }
             }
         }
     } else {
@@ -79,9 +101,10 @@ pub fn StoryDetailView(
                 main_align: "center",
                 cross_align: "center",
                 label { "No story selected or data is missing." }
+                Spacer { height: "15" }
                 Button {
                     onclick: move |_| on_back.call(()),
-                    label { "Back to List" }
+                    label { "← Back to List" }
                 }
             }
         }

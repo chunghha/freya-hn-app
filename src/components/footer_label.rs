@@ -1,32 +1,37 @@
+use crate::components::primitives::Spacer;
 use freya::prelude::*;
 
 #[derive(Props, PartialEq, Clone)]
 pub struct FooterLabelProps {
     pub text: String,
     #[props(optional)]
-    pub color: Option<String>,
-    #[props(optional)]
-    pub font_size: Option<u32>,
+    pub icon: Option<Element>,
 }
 
 #[component]
 pub fn FooterLabel(props: FooterLabelProps) -> Element {
-    const DEFAULT_FOOTER_COLOR: &str = "rgb(40, 60, 80)";
-    const DEFAULT_FOOTER_FONT_SIZE: u32 = 14;
-
-    let color = props
-        .color
-        .clone()
-        .unwrap_or_else(|| DEFAULT_FOOTER_COLOR.to_string());
-    let font_size = props.font_size.unwrap_or(DEFAULT_FOOTER_FONT_SIZE);
+    const LABEL_COLOR: &str = "rgb(50, 50, 50)";
+    const LABEL_FONT_SIZE: &str = "13";
+    const ICON_TEXT_SPACING: &str = "4";
 
     rsx! {
-        label {
-            font_family: "Lato",
-            font_size: "{font_size}",
-            font_weight: "semibold",
-            color: "{color}",
-            "{props.text}"
+        rect {
+            direction: "horizontal",
+            cross_align: "center",
+
+            // Render the icon and a spacer *if* the icon exists.
+            if let Some(icon) = props.icon {
+                Fragment {
+                    {icon}
+                    Spacer { width: ICON_TEXT_SPACING }
+                }
+            }
+
+            label {
+                font_size: LABEL_FONT_SIZE,
+                color: LABEL_COLOR,
+                "{props.text}"
+            }
         }
     }
 }
