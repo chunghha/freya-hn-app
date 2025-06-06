@@ -5,6 +5,7 @@ pub mod icons;
 pub mod indication_label;
 pub mod info_line;
 pub mod primitives;
+pub mod skeletons;
 pub mod story_card;
 pub mod story_detail_view;
 pub use story_detail_view::StoryDetailView;

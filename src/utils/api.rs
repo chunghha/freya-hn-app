@@ -9,6 +9,6 @@ pub const HN_ITEM_URL_BASE: &str = "https://hacker-news.firebaseio.com/v0/item/"
 /// Generates the full URL for a specific Hacker News item using its ID.
 /// This is the single function used by the rest of the app to get an item URL.
 pub fn hn_item_url(id: u32) -> String {
-    // This implementation now clearly uses the base constant.
-    format!("{}{}.json", HN_ITEM_URL_BASE, id)
+  // This implementation now clearly uses the base constant.
+  format!("{}{}.json", HN_ITEM_URL_BASE, id)
 }
