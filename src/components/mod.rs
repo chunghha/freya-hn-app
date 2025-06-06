@@ -1,4 +1,5 @@
 pub mod card_footer;
+pub mod comment_view;
 pub mod footer_label;
 pub mod icons;
 pub mod indication_label;
@@ -6,4 +7,6 @@ pub mod info_line;
 pub mod primitives;
 pub mod story_card;
 pub mod story_detail_view;
+pub use story_detail_view::StoryDetailView;
 pub mod story_list_view;
+pub use story_list_view::StoryListView;

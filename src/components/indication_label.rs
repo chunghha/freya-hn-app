@@ -5,13 +5,10 @@ use std::borrow::Cow;
 pub struct IndicationLabelProps {
     #[props(into)]
     pub text: String,
-
     #[props(default = Cow::Borrowed("rgb(60, 60, 60)"), into)]
     pub color: Cow<'static, str>,
-
     #[props(default = 16u32, into)]
     pub font_size: u32,
-
     #[props(default = 10u32, into)]
     pub padding: u32,
 }

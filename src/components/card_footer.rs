@@ -38,12 +38,11 @@ pub fn CardFooter(props: CardFooterProps) -> Element {
     ));
 
     rsx! {
-        // Reverted to the simpler ScrollView as the root, since the gradient is not possible.
         ScrollView {
             direction: "horizontal",
             width: "100%",
             height: "auto",
-            show_scrollbar: false,
+            show_scrollbar: true,
             padding: "{FOOTER_PADDING_TOP} 0 0 0",
 
             rect {

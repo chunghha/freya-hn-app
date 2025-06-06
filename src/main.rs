@@ -5,38 +5,25 @@
 
 use freya::prelude::*;
 use futures::stream::{self, StreamExt};
-use jiff::Timestamp;
 use log::{error, info};
-use serde::Deserialize;
 
+// --- Module Declarations ---
+// Declare the modules that make up the application.
 mod components;
+mod models;
 mod utils;
-use components::story_detail_view::StoryDetailView;
-use components::story_list_view::StoryListView;
+
+// --- Imports ---
+// Import the necessary components and models from our modules.
+use components::{StoryDetailView, StoryListView};
+use models::Story;
+use utils::api::{hn_item_url, HN_BEST_STORIES_URL};
 
 // --- Application Constants ---
 const BATCH_SIZE: usize = 20;
 const SCROLL_END_MARGIN: i32 = 150;
-const HN_BEST_STORIES_URL: &str = "https://hacker-news.firebaseio.com/v0/beststories.json";
-const HN_ITEM_URL_BASE: &str = "https://hacker-news.firebaseio.com/v0/item/";
 
-/// Generates the URL for a specific Hacker News item.
-fn hn_item_url(id: u32) -> String {
-    format!("{}{}.json", HN_ITEM_URL_BASE, id)
-}
-
-#[derive(Debug, Deserialize, Clone, PartialEq)]
-pub struct Story {
-    pub id: u32,
-    pub title: Option<String>,
-    pub url: Option<String>,
-    pub by: Option<String>,
-    pub score: Option<u32>,
-    #[serde(default, with = "jiff::fmt::serde::timestamp::second::optional")]
-    pub time: Option<Timestamp>,
-    pub descendants: Option<u32>,
-    pub kids: Option<Vec<u32>>,
-}
+// --- Top-level Application State ---
 
 #[derive(Clone, PartialEq)]
 enum CurrentView {
@@ -44,14 +31,18 @@ enum CurrentView {
     Detail,
 }
 
+// --- Main App Component ---
+
 fn app() -> Element {
+    // --- State Signals ---
     let mut stories_signal: Signal<Vec<Story>> = use_signal(Vec::new);
     let mut error_signal: Signal<Option<String>> = use_signal(|| None);
     let mut current_view = use_signal(|| CurrentView::List);
+    let selected_story_data: Signal<Option<Story>> = use_signal(|| None);
     let mut loaded_count: Signal<usize> = use_signal(|| BATCH_SIZE);
     let mut is_loading_more: Signal<bool> = use_signal(|| false);
-    let selected_story_data: Signal<Option<Story>> = use_signal(|| None);
 
+    // --- Hooks ---
     let scroll_controller = use_scroll_controller(ScrollConfig::default);
 
     // Resource to fetch the initial list of best story IDs.
@@ -71,7 +62,7 @@ fn app() -> Element {
         fetch().await
     });
 
-    // Resource to fetch story details based on the IDs and `loaded_count`.
+    // Resource to fetch story details in batches.
     let _ = use_resource({
         move || {
             let current_best_ids = best_story_ids_resource.value().read().as_ref().cloned();
@@ -107,7 +98,7 @@ fn app() -> Element {
                         });
 
                         let results = stream::iter(stories_futures)
-                            .buffer_unordered(10) // Concurrently fetch up to 10 stories
+                            .buffer_unordered(10)
                             .collect::<Vec<_>>()
                             .await;
 
@@ -158,6 +149,7 @@ fn app() -> Element {
         }
     });
 
+    // --- Render ---
     rsx! {
         rect {
             width: "100%",
@@ -167,6 +159,7 @@ fn app() -> Element {
             color: "black",
             padding: "10",
 
+            // Header
             rect {
                 width: "100%",
                 height: "50",
@@ -183,6 +176,7 @@ fn app() -> Element {
                 }
             }
 
+            // Viewport: Switches between the list and detail views.
             if *current_view.read() == CurrentView::List {
                 StoryListView {
                     stories_signal,
@@ -205,6 +199,8 @@ fn app() -> Element {
         }
     }
 }
+
+// --- Application Entry Point ---
 
 fn main() {
     // Initialize the logger. Run with `RUST_LOG=info cargo run` to see logs.

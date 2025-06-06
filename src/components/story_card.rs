@@ -2,14 +2,12 @@ use crate::components::card_footer::CardFooter;
 use crate::Story;
 use freya::prelude::*;
 
-// --- Props Definition ---
 #[derive(Props, PartialEq, Clone)]
 pub struct StoryCardProps {
     pub story: Story,
     pub on_select: EventHandler<u32>,
 }
 
-// --- Main Component ---
 #[component]
 pub fn StoryCard(props: StoryCardProps) -> Element {
     const CARD_PADDING: &str = "12 16";

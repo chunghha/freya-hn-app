@@ -18,15 +18,12 @@ pub fn FooterLabel(props: FooterLabelProps) -> Element {
         rect {
             direction: "horizontal",
             cross_align: "center",
-
-            // Render the icon and a spacer *if* the icon exists.
             if let Some(icon) = props.icon {
                 Fragment {
                     {icon}
                     Spacer { width: ICON_TEXT_SPACING }
                 }
             }
-
             label {
                 font_size: LABEL_FONT_SIZE,
                 color: LABEL_COLOR,
