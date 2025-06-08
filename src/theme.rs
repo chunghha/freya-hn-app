@@ -8,6 +8,15 @@ pub struct FontTheme {
   pub mono: &'static str,
 }
 
+// A struct to hold all font weight names.
+#[derive(Clone, PartialEq)]
+pub struct FontWeightTheme {
+  pub bold: &'static str,
+  pub regular: &'static str,
+  pub semibold: &'static str,
+  pub thin: &'static str,
+}
+
 // A struct to hold all font sizes, providing a consistent scale.
 #[derive(Clone, PartialEq)]
 pub struct SizeTheme {
@@ -37,6 +46,7 @@ pub struct ColorTheme {
 #[derive(Clone, PartialEq)]
 pub struct Theme {
   pub font: FontTheme,
+  pub font_weight: FontWeightTheme,
   pub size: SizeTheme,
   pub color: ColorTheme,
 }
@@ -46,6 +56,7 @@ impl Theme {
   pub fn light() -> Self {
     Self {
       font: FontTheme { sans: "IBM Plex Sans", serif: "IBM Plex Serif", mono: "IBM Plex Mono" },
+      font_weight: FontWeightTheme { bold: "bold", regular: "regular", semibold: "semibold", thin: "thin" },
       size: SizeTheme {
         text_xs: "12",
         text_s: "13",

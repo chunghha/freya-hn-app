@@ -38,7 +38,7 @@ pub fn StoryCard(props: StoryCardProps) -> Element {
           label {
               font_family: "{theme.font.serif}",
               font_size: "{theme.size.text_xl}",
-              font_weight: "bold",
+              font_weight: "{theme.font_weight.bold}",
               color: "{theme.color.base}",
               max_lines: "2",
               "{props.story.title.as_deref().unwrap_or(\"[No Title]\")}"

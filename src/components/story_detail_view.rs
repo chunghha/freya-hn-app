@@ -13,7 +13,11 @@ use log::info;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+// REMOVED: The local, unused fetch_comment_content function is now gone.
+
 // --- Local Components ---
+
+/// A recursive component responsible for rendering a list of comments and their children.
 #[component]
 fn RenderComments(
   comment_ids: Vec<u32>,
@@ -63,13 +67,14 @@ fn RenderComments(
 }
 
 // --- Main Component ---
+
 #[component]
 pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<()>) -> Element {
   // --- Theme and Service from Context ---
   let theme = use_context::<Theme>();
   let api_service = use_context::<Arc<ApiService>>();
 
-  // --- Constants ---
+  // --- Layout Constants ---
   const SKELETON_COUNT: usize = 5;
   const DETAIL_PADDING: &str = "15";
   const VERTICAL_SPACER_HEIGHT: &str = "12";
@@ -112,7 +117,7 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                 height: "auto",
                 padding: DETAIL_PADDING,
                 direction: "vertical",
-                background: "{theme.color.background_page}",
+                background: "{theme.color.background_card}",
 
                 // Story Header
                 Button { onclick: move |_| on_back.call(()), label { "← Back to List" } }
@@ -120,7 +125,7 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                 label {
                     font_family: "{theme.font.serif}",
                     font_size: "{theme.size.text_xxl}",
-                    font_weight: "bold",
+                    font_weight: "{theme.font_weight.bold}",
                     "{story.title.as_deref().unwrap_or(TITLE_PLACEHOLDER)}"
                 }
                 Spacer { height: VERTICAL_SPACER_HEIGHT }
@@ -152,11 +157,12 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                 // Comments Section
                 label {
                     font_size: "{theme.size.text_l}",
-                    font_weight: "bold",
+                    font_weight: "{theme.font_weight.bold}",
                     "Comments:"
                 }
                 Spacer { height: "4" }
 
+                // Conditional rendering for the comment list.
                 if comments_resource.value().read().is_none() {
                     Fragment {
                         {
@@ -168,7 +174,6 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                         comment_ids: kids.clone(),
                         all_comments: all_comments,
                         depth: 0,
-                        // Define the closure inline for each prop.
                         on_toggle_expand: {
                             let api_service = api_service.clone();
                             move |comment_id: u32| {

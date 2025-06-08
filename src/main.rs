@@ -13,12 +13,13 @@ mod utils;
 
 // --- Imports ---
 use components::{
-  StoryDetailView, StoryListView,
+  StoryDetailView, StoryListView, StoryTab,
   primitives::{IconButton, Spacer},
 };
+use freya::prelude::{ScrollDirection, ScrollPosition};
 use models::Story;
 use theme::Theme;
-use utils::api::ApiService;
+use utils::api::{ApiService, StoryListType};
 
 // --- Application Constants ---
 const BATCH_SIZE: usize = 20;
@@ -41,6 +42,7 @@ fn app() -> Element {
   let selected_story_data: Signal<Option<Story>> = use_signal(|| None);
   let mut loaded_count: Signal<usize> = use_signal(|| BATCH_SIZE);
   let mut is_loading_more: Signal<bool> = use_signal(|| false);
+  let mut current_list_type = use_signal(|| StoryListType::Best);
 
   // --- Service and Theme Instantiation and Context ---
   let api_service = Arc::new(ApiService::new());
@@ -49,17 +51,27 @@ fn app() -> Element {
   use_context_provider(|| theme.clone());
 
   // --- Hooks ---
-  let scroll_controller = use_scroll_controller(ScrollConfig::default);
+  let mut scroll_controller = use_scroll_controller(ScrollConfig::default);
 
-  let mut best_story_ids_resource = {
+  use_effect(move || {
+    current_list_type.read();
+    info!("List type changed, resetting state.");
+    stories_signal.set(vec![]);
+    loaded_count.set(BATCH_SIZE);
+    error_signal.set(None);
+    scroll_controller.scroll_to(ScrollPosition::Start, ScrollDirection::Vertical);
+  });
+
+  let mut story_ids_resource = {
     let api_service = api_service.clone();
     use_resource(move || {
+      let list_type = *current_list_type.read();
       let service = api_service.clone();
       async move {
-        info!("Fetching best story IDs...");
-        let result = service.fetch_best_story_ids().await;
+        info!("Fetching story IDs for: {list_type}");
+        let result = service.fetch_story_ids(list_type).await;
         if result.is_ok() {
-          info!("Successfully fetched story IDs");
+          info!("Successfully fetched story IDs for: {list_type}");
         }
         result
       }
@@ -69,7 +81,7 @@ fn app() -> Element {
   let _ = {
     let api_service = api_service.clone();
     use_resource(move || {
-      let current_best_ids = best_story_ids_resource.value().read().as_ref().cloned();
+      let current_best_ids = story_ids_resource.value().read().as_ref().cloned();
       let loaded_count_val = *loaded_count.read();
       let already_loaded = stories_signal.read().len();
       let api_service = api_service.clone();
@@ -116,7 +128,7 @@ fn app() -> Element {
       && layout_val.inner.height > layout_val.area.height()
       && -y_val > end as i32 - SCROLL_END_MARGIN
     {
-      if let Some(Ok(ids)) = best_story_ids_resource.value().read().as_ref() {
+      if let Some(Ok(ids)) = story_ids_resource.value().read().as_ref() {
         let current = *loaded_count.read();
         let next = (current + BATCH_SIZE).min(ids.len());
         if next > current {
@@ -146,70 +158,71 @@ fn app() -> Element {
               main_align: "space-between",
               cross_align: "center",
               padding: "10",
-
-              // Left-side container for title and version
               rect {
                   direction: "horizontal",
                   cross_align: "center",
-                  // Title
-                  label {
-                      font_family: "{theme.font.mono}",
-                      font_size: "{theme.size.text_header}",
-                      font_weight: "bold",
-                      color: "{theme.color.accent_text}",
-                      "Hacker News"
-                  }
-
+                  label { font_family: "{theme.font.mono}", font_size: "{theme.size.text_header}", font_weight: "bold", color: "{theme.color.accent_text}", "Hacker News" }
                   Spacer { width: "12" }
-
-                  // Version Label
-                  label {
-                      font_family: "{theme.font.mono}",
-                      font_size: "{theme.size.text_s}",
-                      color: "{theme.color.accent_text}",
-                      "v{APP_VERSION}"
-                  }
+                  label { font_family: "{theme.font.mono}", font_size: "{theme.size.text_s}", color: "{theme.color.accent_text}", "v{APP_VERSION}" }
               }
-
-              // Refresh Button and Loading Indicator
-              if best_story_ids_resource.value().read().is_none() {
-                  label {
-                      font_size: "{theme.size.text_xl}",
-                      "⏳"
-                  }
+              if story_ids_resource.value().read().is_none() {
+                  label { font_size: "{theme.size.text_xl}", "⏳" }
               } else {
                   IconButton {
                       onclick: move |_| {
                           info!("Refreshing story list...");
-                          stories_signal.set(vec![]);
-                          loaded_count.set(BATCH_SIZE);
-                          error_signal.set(None);
-                          best_story_ids_resource.restart();
+                          story_ids_resource.restart();
                       },
-                      icon: rsx! {
-                          label {
-                              font_size: "{theme.size.text_xl}",
-                              color: "{theme.color.accent_text}",
-                              "🔄"
-                          }
-                      }
+                      icon: rsx! { label { font_size: "{theme.size.text_xl}", color: "{theme.color.accent_text}", "🔄" } }
                   }
               }
           }
 
           // Viewport
           if *current_view.read() == CurrentView::List {
-              StoryListView {
-                  stories_signal,
-                  error_signal,
-                  best_story_ids_resource,
-                  loaded_count,
-                  is_loading_more,
-                  current_view,
-                  selected_story_data,
-                  scroll_controller,
+              rect {
+                  width: "100%",
+                  height: "100%", // Take up remaining space
+                  direction: "vertical",
+
+                  // Tabs for selecting the story list type
+                  rect {
+                      width: "100%",
+                      height: "auto",
+                      direction: "horizontal",
+                      padding: "6",
+                      background: "{theme.color.background_card}",
+                      main_align: "space-around",
+                      border: "1 solid rgb(230, 230, 230)",
+                      corner_radius: "6",
+
+                      for list_type in [StoryListType::Best, StoryListType::Top, StoryListType::New, StoryListType::Ask, StoryListType::Show, StoryListType::Job] {
+                          StoryTab {
+                              title: list_type.to_string(),
+                              is_active: *current_list_type.read() == list_type,
+                              onclick: move |_| {
+                                  if *current_list_type.read() != list_type {
+                                      current_list_type.set(list_type);
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  // The actual list of stories
+                  StoryListView {
+                      stories_signal,
+                      error_signal,
+                      best_story_ids_resource: story_ids_resource,
+                      loaded_count,
+                      is_loading_more,
+                      current_view,
+                      selected_story_data,
+                      scroll_controller,
+                  }
               }
           } else {
+              // The detail view does not include the tabs.
               StoryDetailView {
                   story_data: selected_story_data,
                   on_back: move |_| {

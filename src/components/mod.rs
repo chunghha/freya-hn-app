@@ -12,3 +12,5 @@ pub mod story_detail_view;
 pub use story_detail_view::StoryDetailView;
 pub mod story_list_view;
 pub use story_list_view::StoryListView;
+pub mod story_tab;
+pub use story_tab::StoryTab;

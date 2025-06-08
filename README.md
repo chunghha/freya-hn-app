@@ -33,8 +33,6 @@ This application showcases a robust, scalable architecture featuring on-demand d
 
 ## Screenshots
 
-*(**Note:** You should update this with a new screenshot of the polished UI!)*
-
 ![Screenshot of Freya Hacker News Client](screenshots/ss01.png)
 
 ---
@@ -95,6 +93,7 @@ freya-hn-app/
 │   │   ├── story_card.rs
 │   │   ├── story_detail_view.rs
 │   │   ├── story_list_view.rs
+|   |   ├── story_tab.rs
 │   │   └── mod.rs
 │   └── utils/
 │       ├── api.rs             # Centralized ApiService for all network requests
