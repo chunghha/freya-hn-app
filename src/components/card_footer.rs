@@ -1,8 +1,8 @@
+use crate::Story;
 use crate::components::footer_label::FooterLabel;
 use crate::components::icons::*;
 use crate::components::primitives::Spacer;
 use crate::utils::datetime::format_timestamp;
-use crate::Story;
 use freya::prelude::*;
 
 #[derive(Props, PartialEq, Clone)]

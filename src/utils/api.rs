@@ -1,14 +1,59 @@
-//! Contains constants and helpers for interacting with the Hacker News API.
+//! Contains the centralized ApiService for all Hacker News network requests.
 
-/// The base URL for fetching the list of best story IDs.
-pub const HN_BEST_STORIES_URL: &str = "https://hacker-news.firebaseio.com/v0/beststories.json";
+use crate::models::{Comment, Story};
+use reqwest::Client;
 
-/// The base URL for fetching any item (story or comment).
-pub const HN_ITEM_URL_BASE: &str = "https://hacker-news.firebaseio.com/v0/item/";
+// --- Private Constants ---
+const HN_BEST_STORIES_URL: &str = "https://hacker-news.firebaseio.com/v0/beststories.json";
+const HN_ITEM_URL_BASE: &str = "https://hacker-news.firebaseio.com/v0/item/";
 
-/// Generates the full URL for a specific Hacker News item using its ID.
-/// This is the single function used by the rest of the app to get an item URL.
 pub fn hn_item_url(id: u32) -> String {
-  // This implementation now clearly uses the base constant.
   format!("{}{}.json", HN_ITEM_URL_BASE, id)
+}
+
+// --- The Service ---
+#[derive(Clone)]
+pub struct ApiService {
+  client: Client,
+}
+
+impl ApiService {
+  pub fn new() -> Self {
+    Self { client: Client::new() }
+  }
+
+  pub async fn fetch_best_story_ids(&self) -> Result<Vec<u32>, String> {
+    self
+      .client
+      .get(HN_BEST_STORIES_URL)
+      .send()
+      .await
+      .map_err(|e| e.to_string())?
+      .json::<Vec<u32>>()
+      .await
+      .map_err(|e| e.to_string())
+  }
+
+  pub async fn fetch_story_content(&self, id: u32) -> Result<Story, String> {
+    self
+      .client
+      .get(hn_item_url(id))
+      .send()
+      .await
+      .map_err(|e| e.to_string())?
+      .json::<Story>()
+      .await
+      .map_err(|e| e.to_string())
+  }
+
+  pub async fn fetch_comment_content(&self, id: u32) -> Result<Comment, String> {
+    let url = hn_item_url(id);
+    let mut comment: Comment =
+      self.client.get(&url).send().await.map_err(|e| e.to_string())?.json().await.map_err(|e| e.to_string())?;
+
+    comment.children = freya::prelude::Signal::new(vec![]);
+    comment.is_expanded = freya::prelude::Signal::new(false);
+    comment.fetch_state = freya::prelude::Signal::new(crate::models::FetchState::Idle);
+    Ok(comment)
+  }
 }

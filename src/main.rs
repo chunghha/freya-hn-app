@@ -3,25 +3,23 @@
 use freya::prelude::*;
 use futures::stream::{self, StreamExt};
 use log::{error, info};
+use std::sync::Arc;
 
 // --- Module Declarations ---
-// Declare the modules that make up the application.
 mod components;
 mod models;
 mod utils;
 
 // --- Imports ---
-// Import the necessary components and models from our modules.
 use components::{StoryDetailView, StoryListView};
 use models::Story;
-use utils::api::{hn_item_url, HN_BEST_STORIES_URL};
+use utils::api::ApiService;
 
 // --- Application Constants ---
 const BATCH_SIZE: usize = 20;
 const SCROLL_END_MARGIN: i32 = 150;
 
 // --- Top-level Application State ---
-
 #[derive(Clone, PartialEq)]
 enum CurrentView {
   List,
@@ -29,7 +27,6 @@ enum CurrentView {
 }
 
 // --- Main App Component ---
-
 fn app() -> Element {
   // --- State Signals ---
   let mut stories_signal: Signal<Vec<Story>> = use_signal(Vec::new);
@@ -39,28 +36,40 @@ fn app() -> Element {
   let mut loaded_count: Signal<usize> = use_signal(|| BATCH_SIZE);
   let mut is_loading_more: Signal<bool> = use_signal(|| false);
 
+  // --- Service Instantiation and Context ---
+  let api_service = Arc::new(ApiService::new());
+  use_context_provider(|| api_service.clone());
+
   // --- Hooks ---
   let scroll_controller = use_scroll_controller(ScrollConfig::default);
 
   // Resource to fetch the initial list of best story IDs.
-  let best_story_ids_resource = use_resource(|| async move {
-    async fn fetch() -> Result<Vec<u32>, String> {
-      info!("Fetching best story IDs...");
-      let response =
-        reqwest::get(HN_BEST_STORIES_URL).await.map_err(|e| format!("Failed to fetch best story IDs: {}", e))?;
-      let ids = response.json::<Vec<u32>>().await.map_err(|e| format!("Failed to parse story IDs: {}", e))?;
-      info!("Successfully fetched {} story IDs", ids.len());
-      Ok(ids)
-    }
-    fetch().await
-  });
+  let best_story_ids_resource = {
+    // Clone the Arc *before* the move closure.
+    let api_service = api_service.clone();
+    use_resource(move || {
+      let value = api_service.clone();
+      async move {
+        info!("Fetching best story IDs...");
+        let result = value.fetch_best_story_ids().await;
+        if result.is_ok() {
+          info!("Successfully fetched story IDs");
+        }
+        result
+      }
+    })
+  };
 
   // Resource to fetch story details in batches.
-  let _ = use_resource({
-    move || {
+  let _ = {
+    // Clone the Arc again, specifically for this second hook.
+    let api_service = api_service.clone();
+    use_resource(move || {
       let current_best_ids = best_story_ids_resource.value().read().as_ref().cloned();
       let loaded_count_val = *loaded_count.read();
       let already_loaded = stories_signal.read().len();
+      // This inner clone is for the async block, which is also correct.
+      let api_service = api_service.clone();
 
       async move {
         if let Some(Ok(ids)) = current_best_ids {
@@ -72,12 +81,9 @@ fn app() -> Element {
 
             info!("Fetching {} story details in parallel...", ids_to_fetch.len());
 
-            let stories_futures = ids_to_fetch.into_iter().map(|id| async move {
-              let story_url = hn_item_url(id);
-              match reqwest::get(&story_url).await {
-                Ok(response) => response.json::<Story>().await.map_err(|e| (id, e.to_string())),
-                Err(e) => Err((id, e.to_string())),
-              }
+            let stories_futures = ids_to_fetch.into_iter().map(|id| {
+              let api_service = api_service.clone();
+              async move { api_service.fetch_story_content(id).await }
             });
 
             let results = stream::iter(stories_futures).buffer_unordered(10).collect::<Vec<_>>().await;
@@ -86,8 +92,8 @@ fn app() -> Element {
             for result in results {
               match result {
                 Ok(story) => new_stories.push(story),
-                Err((id, e)) => {
-                  let err_msg = format!("Failed to fetch/parse story {}: {}", id, e);
+                Err(e) => {
+                  let err_msg = format!("Failed to fetch/parse story: {}", e);
                   error!("{}", err_msg);
                   error_signal.set(Some(err_msg));
                 }
@@ -102,8 +108,8 @@ fn app() -> Element {
           }
         }
       }
-    }
-  });
+    })
+  };
 
   // Effect for infinite scrolling.
   use_effect(move || {
@@ -148,6 +154,7 @@ fn app() -> Element {
               cross_align: "center",
               padding: "10",
               label {
+                  font_family: "IBM Plex Mono",
                   font_size: "24",
                   font_weight: "bold",
                   color: "white",
@@ -155,7 +162,7 @@ fn app() -> Element {
               }
           }
 
-          // Viewport: Switches between the list and detail views.
+          // Viewport
           if *current_view.read() == CurrentView::List {
               StoryListView {
                   stories_signal,
@@ -180,9 +187,7 @@ fn app() -> Element {
 }
 
 // --- Application Entry Point ---
-
 fn main() {
-  // Initialize the logger. Run with `RUST_LOG=info cargo run` to see logs.
   env_logger::init();
   launch_with_props(app, "Hacker News", (900.0, 900.0));
 }

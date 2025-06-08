@@ -25,7 +25,7 @@ pub fn CommentView(props: CommentViewProps) -> Element {
   const DELETED_COLOR: &str = "rgb(150, 150, 150)";
   const META_FONT_SIZE: &str = "13";
   const META_COLOR: &str = "rgb(80, 80, 80)";
-  const TEXT_FONT_SIZE: &str = "14";
+  const TEXT_FONT_SIZE: &str = "16";
 
   let padding_left = (props.depth * INDENTATION_SIZE).to_string();
 
@@ -56,7 +56,7 @@ pub fn CommentView(props: CommentViewProps) -> Element {
                   Button {
                       onclick: move |_| props.on_toggle_expand.call(comment_id),
                       label {
-                          font_size: "12",
+                          font_size: "14",
                           if fetch_state == FetchState::Loading {
                               "⏳"
                           } else if *comment.is_expanded.read() {

@@ -9,7 +9,7 @@ pub struct InfoLineProps {
 
 #[component]
 pub fn InfoLine(props: InfoLineProps) -> Element {
-  const INFO_FONT_SIZE: &str = "14";
+  const INFO_FONT_SIZE: &str = "16";
   const ICON_TEXT_SPACING: &str = "8";
 
   rsx! {

@@ -1,8 +1,8 @@
+use crate::CurrentView;
 use crate::components::indication_label::IndicationLabel;
 use crate::components::primitives::ErrorView;
 use crate::components::story_card::StoryCard;
 use crate::models::Story;
-use crate::CurrentView;
 use freya::prelude::*;
 
 #[component]

@@ -1,5 +1,5 @@
-use crate::components::card_footer::CardFooter;
 use crate::Story;
+use crate::components::card_footer::CardFooter;
 use freya::prelude::*;
 
 #[derive(Props, PartialEq, Clone)]
@@ -15,11 +15,12 @@ pub fn StoryCard(props: StoryCardProps) -> Element {
   const CARD_CORNER_RADIUS: &str = "8";
   const CARD_BACKGROUND: &str = "white";
   const CARD_SHADOW: &str = "0 2 8 0 rgb(0,0,0,0.1)";
-  const TITLE_FONT_FAMILY: &str = "Inter";
-  const TITLE_FONT_SIZE: &str = "18";
+  const TITLE_FONT_FAMILY: &str = "IBM Plex Serif";
+  const TITLE_FONT_SIZE: &str = "20";
   const TITLE_FONT_WEIGHT: &str = "bold";
   const TITLE_COLOR: &str = "black";
-  const URL_FONT_SIZE: &str = "14";
+  const URL_FONT_FAMILY: &str = "IBM Plex Mono";
+  const URL_FONT_SIZE: &str = "16";
   const URL_COLOR: &str = "rgb(80, 80, 80)";
 
   let story_id = props.story.id;
@@ -49,6 +50,7 @@ pub fn StoryCard(props: StoryCardProps) -> Element {
           {
               props.story.url.as_ref().map(|url| rsx! {
                   label {
+                      font_family: URL_FONT_FAMILY,
                       font_size: URL_FONT_SIZE,
                       color: URL_COLOR,
                       max_lines: "1",

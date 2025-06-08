@@ -29,14 +29,14 @@ pub fn CommentSkeleton() -> Element {
           // Placeholders for the comment text
           rect {
               width: "90%",
-              height: "12",
+              height: "14",
               background: PLACEHOLDER_BG,
               corner_radius: "4",
           }
           Spacer { height: "6" }
           rect {
               width: "70%",
-              height: "12",
+              height: "14",
               background: PLACEHOLDER_BG,
               corner_radius: "4",
           }

@@ -1,6 +1,7 @@
 use jiff::{
+  Timestamp,
   civil::{Date, DateTime},
-  tz, Timestamp,
+  tz,
 };
 
 pub fn format_timestamp(ts: &Timestamp) -> String {

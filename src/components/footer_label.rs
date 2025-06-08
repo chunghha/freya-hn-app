@@ -11,7 +11,7 @@ pub struct FooterLabelProps {
 #[component]
 pub fn FooterLabel(props: FooterLabelProps) -> Element {
   const LABEL_COLOR: &str = "rgb(50, 50, 50)";
-  const LABEL_FONT_SIZE: &str = "13";
+  const LABEL_FONT_SIZE: &str = "15";
   const ICON_TEXT_SPACING: &str = "4";
 
   rsx! {

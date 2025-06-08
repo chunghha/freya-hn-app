@@ -1,7 +1,7 @@
 use freya::prelude::*;
 
 const ICON_COLOR: &str = "rgb(80, 80, 80)";
-const ICON_SIZE: &str = "14";
+const ICON_SIZE: &str = "16";
 
 #[component]
 pub fn IconScore() -> Element {
