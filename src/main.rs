@@ -12,7 +12,10 @@ mod theme;
 mod utils;
 
 // --- Imports ---
-use components::{StoryDetailView, StoryListView};
+use components::{
+  StoryDetailView, StoryListView,
+  primitives::{IconButton, Spacer},
+};
 use models::Story;
 use theme::Theme;
 use utils::api::ApiService;
@@ -20,6 +23,7 @@ use utils::api::ApiService;
 // --- Application Constants ---
 const BATCH_SIZE: usize = 20;
 const SCROLL_END_MARGIN: i32 = 150;
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // --- Top-level Application State ---
 #[derive(Clone, PartialEq)]
@@ -41,15 +45,13 @@ fn app() -> Element {
   // --- Service and Theme Instantiation and Context ---
   let api_service = Arc::new(ApiService::new());
   use_context_provider(|| api_service.clone());
-  // Create and provide the theme to the entire application.
   let theme = Theme::light();
   use_context_provider(|| theme.clone());
 
   // --- Hooks ---
   let scroll_controller = use_scroll_controller(ScrollConfig::default);
 
-  // ... (use_resource and use_effect hooks remain exactly the same) ...
-  let best_story_ids_resource = {
+  let mut best_story_ids_resource = {
     let api_service = api_service.clone();
     use_resource(move || {
       let service = api_service.clone();
@@ -63,6 +65,7 @@ fn app() -> Element {
       }
     })
   };
+
   let _ = {
     let api_service = api_service.clone();
     use_resource(move || {
@@ -102,6 +105,7 @@ fn app() -> Element {
       }
     })
   };
+
   use_effect(move || {
     let y = scroll_controller.y();
     let layout = scroll_controller.layout();
@@ -139,15 +143,57 @@ fn app() -> Element {
               height: "50",
               background: "{theme.color.accent}",
               direction: "horizontal",
-              main_align: "center",
+              main_align: "space-between",
               cross_align: "center",
               padding: "10",
-              label {
-                  font_family: "{theme.font.mono}",
-                  font_size: "{theme.size.text_header}",
-                  font_weight: "bold",
-                  color: "{theme.color.accent_text}",
-                  "Hacker News Best Stories"
+
+              // Left-side container for title and version
+              rect {
+                  direction: "horizontal",
+                  cross_align: "center",
+                  // Title
+                  label {
+                      font_family: "{theme.font.mono}",
+                      font_size: "{theme.size.text_header}",
+                      font_weight: "bold",
+                      color: "{theme.color.accent_text}",
+                      "Hacker News"
+                  }
+
+                  Spacer { width: "12" }
+
+                  // Version Label
+                  label {
+                      font_family: "{theme.font.mono}",
+                      font_size: "{theme.size.text_s}",
+                      color: "{theme.color.accent_text}",
+                      "v{APP_VERSION}"
+                  }
+              }
+
+              // Refresh Button and Loading Indicator
+              if best_story_ids_resource.value().read().is_none() {
+                  label {
+                      font_size: "{theme.size.text_xl}",
+                      "⏳"
+                  }
+              } else {
+                  IconButton {
+                      onclick: move |_| {
+                          info!("Refreshing story list...");
+                          stories_signal.set(vec![]);
+                          loaded_count.set(BATCH_SIZE);
+                          error_signal.set(None);
+                          best_story_ids_resource.restart();
+                      },
+                      icon: rsx! {
+                          label {
+                              font_size: "{theme.size.text_xl}",
+                              color: "{theme.color.accent_text}",
+                              "🔄"
+                          }
+                      }
+                  }
               }
           }
 

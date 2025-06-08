@@ -46,3 +46,34 @@ pub fn ErrorView(props: ErrorViewProps) -> Element {
       }
   }
 }
+
+#[derive(Props, PartialEq, Clone)]
+pub struct IconButtonProps {
+  pub onclick: EventHandler<()>,
+  pub icon: Element,
+}
+
+#[component]
+pub fn IconButton(props: IconButtonProps) -> Element {
+  let focus = use_focus();
+  let is_focused = focus.is_focused();
+
+  // Provide visual feedback on hover.
+  let background = if is_focused { "rgba(255, 255, 255, 0.2)" } else { "transparent" };
+  let corner_radius = "6";
+  let button_size = "36";
+
+  rsx! {
+      rect {
+          width: button_size,
+          height: button_size,
+          main_align: "center",
+          cross_align: "center",
+          corner_radius: corner_radius,
+          background: background,
+          onclick: move |_| props.onclick.call(()),
+          // The icon element is passed in as a child.
+          {props.icon}
+      }
+  }
+}
