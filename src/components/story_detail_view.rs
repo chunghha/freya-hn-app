@@ -1,10 +1,10 @@
 use crate::components::comment_view::CommentView;
 use crate::components::icons::*;
-use crate::components::indication_label::IndicationLabel;
 use crate::components::info_line::InfoLine;
+use crate::components::no_story_selected_view::NoStorySelectedView;
 use crate::components::primitives::Spacer;
 use crate::components::skeletons::CommentSkeleton;
-use crate::models::{Comment, Story};
+use crate::models::{Comment, FetchState, Story};
 use crate::utils::api::hn_item_url;
 use crate::utils::datetime::format_timestamp;
 use freya::prelude::*;
@@ -19,24 +19,39 @@ async fn fetch_comment_content(id: u32) -> Result<Comment, String> {
 
   comment.children = Signal::new(vec![]);
   comment.is_expanded = Signal::new(false);
+  comment.fetch_state = Signal::new(FetchState::Idle);
   Ok(comment)
 }
 
 // --- Local Components ---
-
-/// A recursive component responsible for rendering a list of comments and their children.
 #[component]
 fn RenderComments(
   comment_ids: Vec<u32>,
   all_comments: Signal<HashMap<u32, Comment>>,
   depth: u16,
   on_toggle_expand: EventHandler<u32>,
+  on_retry_fetch: EventHandler<u32>,
 ) -> Element {
   let comments_map = all_comments.read();
   rsx! {
       {
           comment_ids.iter().map(|id| {
               if let Some(comment) = comments_map.get(id) {
+                  let children_nodes = if *comment.is_expanded.read() && comment.fetch_state.read().clone() == FetchState::Idle {
+                      let children_ids: Vec<u32> = comment.children.read().iter().map(|c| c.id).collect();
+                      rsx! {
+                          RenderComments {
+                              comment_ids: children_ids,
+                              all_comments: all_comments,
+                              depth: depth + 1,
+                              on_toggle_expand: on_toggle_expand,
+                              on_retry_fetch: on_retry_fetch,
+                          }
+                      }
+                  } else {
+                      rsx! { Fragment {} }
+                  };
+
                   rsx! {
                       Fragment {
                           key: "{comment.id}",
@@ -44,15 +59,9 @@ fn RenderComments(
                               comment: comment.clone(),
                               depth: depth,
                               on_toggle_expand: on_toggle_expand,
+                              on_retry_fetch: on_retry_fetch,
                           }
-                          if *comment.is_expanded.read() {
-                              RenderComments {
-                                  comment_ids: comment.children.read().iter().map(|c| c.id).collect(),
-                                  all_comments: all_comments,
-                                  depth: depth + 1,
-                                  on_toggle_expand: on_toggle_expand,
-                              }
-                          }
+                          {children_nodes}
                       }
                   }
               } else {
@@ -64,7 +73,6 @@ fn RenderComments(
 }
 
 // --- Main Component ---
-
 #[component]
 pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<()>) -> Element {
   // --- Constants ---
@@ -102,26 +110,46 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
     }
   });
 
-  let on_toggle_expand = move |comment_id: u32| {
+  let on_toggle_or_retry = move |comment_id: u32| {
     let mut comments_map = all_comments.write();
     if let Some(comment_to_toggle) = comments_map.get_mut(&comment_id) {
-      let current_state = *comment_to_toggle.is_expanded.read();
-      comment_to_toggle.is_expanded.set(!current_state);
+      let is_currently_expanded = *comment_to_toggle.is_expanded.read();
 
-      if !current_state && comment_to_toggle.children.read().is_empty() {
-        if let Some(kids) = comment_to_toggle.kids.clone() {
-          let mut children_signal = comment_to_toggle.children;
-          spawn(async move {
-            info!("Fetching {} children for comment {}", kids.len(), comment_id);
-            let mut fetched_children = Vec::new();
-            for kid_id in kids {
-              if let Ok(child_comment) = fetch_comment_content(kid_id).await {
-                fetched_children.push(child_comment);
+      if !is_currently_expanded || *comment_to_toggle.fetch_state.read() == FetchState::Failed {
+        comment_to_toggle.is_expanded.set(true);
+
+        if comment_to_toggle.children.read().is_empty() {
+          if let Some(kids) = comment_to_toggle.kids.clone() {
+            let mut children_signal = comment_to_toggle.children;
+            let mut fetch_state_signal = comment_to_toggle.fetch_state;
+
+            spawn(async move {
+              info!("Fetching {} children for comment {}", kids.len(), comment_id);
+              fetch_state_signal.set(FetchState::Loading);
+              let mut fetched_children = Vec::new();
+              let mut all_successful = true;
+
+              for kid_id in kids {
+                match fetch_comment_content(kid_id).await {
+                  Ok(child_comment) => fetched_children.push(child_comment),
+                  Err(_) => {
+                    all_successful = false;
+                    break;
+                  }
+                }
               }
-            }
-            children_signal.set(fetched_children);
-          });
+
+              if all_successful {
+                children_signal.set(fetched_children);
+                fetch_state_signal.set(FetchState::Idle);
+              } else {
+                fetch_state_signal.set(FetchState::Failed);
+              }
+            });
+          }
         }
+      } else {
+        comment_to_toggle.is_expanded.set(false);
       }
     }
   };
@@ -169,7 +197,6 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                 // Conditional rendering for the comment list.
                 if comments_resource.value().read().is_none() {
                     Fragment {
-                        IndicationLabel { text: "Loading comments...".to_string() }
                         {
                             (0..SKELETON_COUNT).map(|_| rsx!{ CommentSkeleton {} })
                         }
@@ -179,7 +206,8 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                         comment_ids: kids.clone(),
                         all_comments: all_comments,
                         depth: 0,
-                        on_toggle_expand: on_toggle_expand,
+                        on_toggle_expand: on_toggle_or_retry,
+                        on_retry_fetch: on_toggle_or_retry,
                     }
                 } else {
                     label { color: COMMENTS_PLACEHOLDER_COLOR, "No comments to display." }
@@ -190,21 +218,8 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
   } else {
     // Fallback view if no story is selected.
     rsx! {
-        rect {
-            width: "100%",
-            height: "fill",
-            direction: "vertical",
-            main_align: "center",
-            cross_align: "center",
-
-            label {
-                "No story selected or data is missing."
-            }
-            Spacer { height: "15" }
-            Button {
-                onclick: move |_| on_back.call(()),
-                label { "← Back to List" }
-            }
+        NoStorySelectedView {
+            on_back: on_back
         }
     }
   }

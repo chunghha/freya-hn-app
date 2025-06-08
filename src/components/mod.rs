@@ -4,6 +4,7 @@ pub mod footer_label;
 pub mod icons;
 pub mod indication_label;
 pub mod info_line;
+pub mod no_story_selected_view;
 pub mod primitives;
 pub mod skeletons;
 pub mod story_card;

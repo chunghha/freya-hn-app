@@ -15,6 +15,14 @@ pub struct Story {
   pub kids: Option<Vec<u32>>,
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum FetchState {
+  #[default]
+  Idle,
+  Loading,
+  Failed,
+}
+
 #[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct Comment {
   pub id: u32,
@@ -27,10 +35,12 @@ pub struct Comment {
   #[serde(default)]
   pub deleted: bool,
 
-  // --- NEW: UI State Fields ---
-  // We will populate these fields manually, so we tell Serde to skip them.
+  // --- UI State Fields ---
   #[serde(skip)]
   pub children: Signal<Vec<Comment>>,
   #[serde(skip)]
   pub is_expanded: Signal<bool>,
+  // NEW: Add the fetch state signal.
+  #[serde(skip)]
+  pub fetch_state: Signal<FetchState>,
 }

@@ -1,6 +1,7 @@
 use crate::components::icons::{IconTime, IconUser};
+use crate::components::indication_label::IndicationLabel;
 use crate::components::primitives::Spacer;
-use crate::models::Comment;
+use crate::models::{Comment, FetchState};
 use crate::utils::datetime::format_timestamp;
 use freya::prelude::*;
 
@@ -9,6 +10,7 @@ pub struct CommentViewProps {
   pub comment: Comment,
   pub depth: u16,
   pub on_toggle_expand: EventHandler<u32>,
+  pub on_retry_fetch: EventHandler<u32>,
 }
 
 #[component]
@@ -16,6 +18,7 @@ pub fn CommentView(props: CommentViewProps) -> Element {
   let comment = &props.comment;
   let has_kids = comment.kids.as_ref().is_some_and(|k| !k.is_empty());
   let comment_id = comment.id;
+  let fetch_state = comment.fetch_state.read().clone();
 
   const INDENTATION_SIZE: u16 = 20;
   const DELETED_TEXT: &str = "[deleted]";
@@ -54,7 +57,13 @@ pub fn CommentView(props: CommentViewProps) -> Element {
                       onclick: move |_| props.on_toggle_expand.call(comment_id),
                       label {
                           font_size: "12",
-                          if *comment.is_expanded.read() { "[-]" } else { "[+]" }
+                          if fetch_state == FetchState::Loading {
+                              "⏳"
+                          } else if *comment.is_expanded.read() {
+                              "[-]"
+                          } else {
+                              "[+]"
+                          }
                       }
                   }
                   Spacer { width: "8" }
@@ -73,6 +82,27 @@ pub fn CommentView(props: CommentViewProps) -> Element {
               font_size: TEXT_FONT_SIZE,
               color: if comment.deleted { DELETED_COLOR } else { "black" },
               "{display_text}"
+          }
+
+          if *comment.is_expanded.read() {
+              match fetch_state {
+                  FetchState::Loading => rsx!{
+                      IndicationLabel { text: "Loading replies...".to_string() }
+                  },
+                  FetchState::Failed => rsx!{
+                      rect {
+                          direction: "horizontal",
+                          cross_align: "center",
+                          label { color: "red", "Failed to load replies." }
+                          Spacer { width: "8" }
+                          Button {
+                              onclick: move |_| props.on_retry_fetch.call(comment_id),
+                              label { "Retry" }
+                          }
+                      }
+                  },
+                  FetchState::Idle => rsx!{ Fragment {} }
+              }
           }
       }
   }
