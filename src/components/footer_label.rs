@@ -1,4 +1,5 @@
 use crate::components::primitives::Spacer;
+use crate::theme::Theme;
 use freya::prelude::*;
 
 #[derive(Props, PartialEq, Clone)]
@@ -10,8 +11,7 @@ pub struct FooterLabelProps {
 
 #[component]
 pub fn FooterLabel(props: FooterLabelProps) -> Element {
-  const LABEL_COLOR: &str = "rgb(50, 50, 50)";
-  const LABEL_FONT_SIZE: &str = "15";
+  let theme = use_context::<Theme>();
   const ICON_TEXT_SPACING: &str = "4";
 
   rsx! {
@@ -25,8 +25,10 @@ pub fn FooterLabel(props: FooterLabelProps) -> Element {
               }
           }
           label {
-              font_size: LABEL_FONT_SIZE,
-              color: LABEL_COLOR,
+              // Use the sans font for all metadata.
+              font_family: "{theme.font.sans}",
+              font_size: "{theme.size.text_s}",
+              color: "{theme.color.text}",
               "{props.text}"
           }
       }

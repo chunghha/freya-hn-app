@@ -2,6 +2,7 @@ use crate::components::icons::{IconTime, IconUser};
 use crate::components::indication_label::IndicationLabel;
 use crate::components::primitives::Spacer;
 use crate::models::{Comment, FetchState};
+use crate::theme::Theme;
 use crate::utils::datetime::format_timestamp;
 use freya::prelude::*;
 
@@ -15,6 +16,7 @@ pub struct CommentViewProps {
 
 #[component]
 pub fn CommentView(props: CommentViewProps) -> Element {
+  let theme = use_context::<Theme>();
   let comment = &props.comment;
   let has_kids = comment.kids.as_ref().is_some_and(|k| !k.is_empty());
   let comment_id = comment.id;
@@ -22,10 +24,6 @@ pub fn CommentView(props: CommentViewProps) -> Element {
 
   const INDENTATION_SIZE: u16 = 20;
   const DELETED_TEXT: &str = "[deleted]";
-  const DELETED_COLOR: &str = "rgb(150, 150, 150)";
-  const META_FONT_SIZE: &str = "13";
-  const META_COLOR: &str = "rgb(80, 80, 80)";
-  const TEXT_FONT_SIZE: &str = "16";
 
   let padding_left = (props.depth * INDENTATION_SIZE).to_string();
 
@@ -56,7 +54,8 @@ pub fn CommentView(props: CommentViewProps) -> Element {
                   Button {
                       onclick: move |_| props.on_toggle_expand.call(comment_id),
                       label {
-                          font_size: "14",
+                          font_family: "{theme.font.sans}",
+                          font_size: "{theme.size.text_xs}",
                           if fetch_state == FetchState::Loading {
                               "⏳"
                           } else if *comment.is_expanded.read() {
@@ -69,18 +68,42 @@ pub fn CommentView(props: CommentViewProps) -> Element {
                   Spacer { width: "8" }
               }
               if !comment.deleted {
-                  rect { direction: "horizontal", cross_align: "center", IconUser {}, Spacer { width: "4" }, label { font_size: META_FONT_SIZE, color: META_COLOR, "{comment.by.as_deref().unwrap_or(\"N/A\")}" } }
+                  rect {
+                      direction: "horizontal",
+                      cross_align: "center",
+                      IconUser {},
+                      Spacer { width: "4" },
+                      label {
+                          font_family: "{theme.font.sans}",
+                          font_size: "{theme.size.text_s}",
+                          color: "{theme.color.text_alt}",
+                          "{comment.by.as_deref().unwrap_or(\"N/A\")}"
+                      }
+                  }
                   Spacer { width: "12" }
                   if let Some(time) = &comment.time {
-                      rect { direction: "horizontal", cross_align: "center", IconTime {}, Spacer { width: "4" }, label { font_size: META_FONT_SIZE, color: META_COLOR, "{format_timestamp(time)}" } }
+                      rect {
+                          direction: "horizontal",
+                          cross_align: "center",
+                          IconTime {},
+                          Spacer { width: "4" },
+                          label {
+                              font_family: "{theme.font.sans}",
+                              font_size: "{theme.size.text_s}",
+                              color: "{theme.color.text_alt}",
+                              "{format_timestamp(time)}"
+                          }
+                      }
                   }
               }
           }
           Spacer { height: "6" }
 
           label {
-              font_size: TEXT_FONT_SIZE,
-              color: if comment.deleted { DELETED_COLOR } else { "black" },
+              // Use sans font and the new, larger size for comment bodies.
+              font_family: "{theme.font.sans}",
+              font_size: "{theme.size.text_l}",
+              color: if comment.deleted { "{theme.color.text_alt}" } else { "{theme.color.text}" },
               "{display_text}"
           }
 
@@ -93,11 +116,11 @@ pub fn CommentView(props: CommentViewProps) -> Element {
                       rect {
                           direction: "horizontal",
                           cross_align: "center",
-                          label { color: "red", "Failed to load replies." }
+                          label { font_family: "{theme.font.sans}", color: "red", "Failed to load replies." }
                           Spacer { width: "8" }
                           Button {
                               onclick: move |_| props.on_retry_fetch.call(comment_id),
-                              label { "Retry" }
+                              label { font_family: "{theme.font.sans}", "Retry" }
                           }
                       }
                   },

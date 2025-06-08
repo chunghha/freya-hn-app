@@ -1,5 +1,6 @@
-use crate::Story;
 use crate::components::card_footer::CardFooter;
+use crate::models::Story;
+use crate::theme::Theme;
 use freya::prelude::*;
 
 #[derive(Props, PartialEq, Clone)]
@@ -10,18 +11,14 @@ pub struct StoryCardProps {
 
 #[component]
 pub fn StoryCard(props: StoryCardProps) -> Element {
+  // Consume the theme from the context.
+  let theme = use_context::<Theme>();
+
+  // All local style constants are now removed.
   const CARD_PADDING: &str = "12 16";
   const CARD_MARGIN: &str = "0 0 8 0";
   const CARD_CORNER_RADIUS: &str = "8";
-  const CARD_BACKGROUND: &str = "white";
   const CARD_SHADOW: &str = "0 2 8 0 rgb(0,0,0,0.1)";
-  const TITLE_FONT_FAMILY: &str = "IBM Plex Serif";
-  const TITLE_FONT_SIZE: &str = "20";
-  const TITLE_FONT_WEIGHT: &str = "bold";
-  const TITLE_COLOR: &str = "black";
-  const URL_FONT_FAMILY: &str = "IBM Plex Mono";
-  const URL_FONT_SIZE: &str = "16";
-  const URL_COLOR: &str = "rgb(80, 80, 80)";
 
   let story_id = props.story.id;
 
@@ -34,15 +31,15 @@ pub fn StoryCard(props: StoryCardProps) -> Element {
           padding: CARD_PADDING,
           margin: CARD_MARGIN,
           corner_radius: CARD_CORNER_RADIUS,
-          background: CARD_BACKGROUND,
+          background: "{theme.color.background_card}",
           shadow: CARD_SHADOW,
           onclick: move |_| props.on_select.call(story_id),
 
           label {
-              font_family: TITLE_FONT_FAMILY,
-              font_size: TITLE_FONT_SIZE,
-              font_weight: TITLE_FONT_WEIGHT,
-              color: TITLE_COLOR,
+              font_family: "{theme.font.serif}",
+              font_size: "{theme.size.text_xl}",
+              font_weight: "bold",
+              color: "{theme.color.base}",
               max_lines: "2",
               "{props.story.title.as_deref().unwrap_or(\"[No Title]\")}"
           }
@@ -50,9 +47,9 @@ pub fn StoryCard(props: StoryCardProps) -> Element {
           {
               props.story.url.as_ref().map(|url| rsx! {
                   label {
-                      font_family: URL_FONT_FAMILY,
-                      font_size: URL_FONT_SIZE,
-                      color: URL_COLOR,
+                      font_family: "{theme.font.mono}",
+                      font_size: "{theme.size.text_l}",
+                      color: "{theme.color.text_alt}",
                       max_lines: "1",
                       text_overflow: "ellipsis",
                       "{url}"

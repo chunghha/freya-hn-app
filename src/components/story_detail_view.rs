@@ -5,6 +5,7 @@ use crate::components::no_story_selected_view::NoStorySelectedView;
 use crate::components::primitives::Spacer;
 use crate::components::skeletons::CommentSkeleton;
 use crate::models::{Comment, FetchState, Story};
+use crate::theme::Theme;
 use crate::utils::api::ApiService;
 use crate::utils::datetime::format_timestamp;
 use freya::prelude::*;
@@ -64,25 +65,18 @@ fn RenderComments(
 // --- Main Component ---
 #[component]
 pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<()>) -> Element {
+  // --- Theme and Service from Context ---
+  let theme = use_context::<Theme>();
+  let api_service = use_context::<Arc<ApiService>>();
+
   // --- Constants ---
   const SKELETON_COUNT: usize = 5;
   const DETAIL_PADDING: &str = "15";
-  const DETAIL_BG: &str = "rgb(250, 250, 250)";
-  const TITLE_FONT_FAMILY: &str = "IBM Plex Serif";
-  const TITLE_FONT_SIZE: &str = "22";
-  const TITLE_FONT_WEIGHT: &str = "bold";
-  const TITLE_PLACEHOLDER: &str = "[No Title]";
-  const URL_FONT_FAMILY: &str = "IBM Plex Mono";
-  const URL_FONT_SIZE: &str = "16";
-  const URL_COLOR: &str = "rgb(0, 0, 200)";
   const VERTICAL_SPACER_HEIGHT: &str = "12";
   const COMMENTS_SECTION_SPACER: &str = "20";
-  const COMMENTS_TITLE_FONT_SIZE: &str = "16";
-  const COMMENTS_TITLE_FONT_WEIGHT: &str = "bold";
-  const COMMENTS_PLACEHOLDER_COLOR: &str = "rgb(100,100,100)";
+  const TITLE_PLACEHOLDER: &str = "[No Title]";
 
   // --- State and Hooks ---
-  let api_service = use_context::<Arc<ApiService>>();
   let mut all_comments: Signal<HashMap<u32, Comment>> = use_signal(HashMap::new);
 
   let comments_resource = use_resource({
@@ -118,16 +112,32 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                 height: "auto",
                 padding: DETAIL_PADDING,
                 direction: "vertical",
-                background: DETAIL_BG,
+                background: "{theme.color.background_page}",
 
+                // Story Header
                 Button { onclick: move |_| on_back.call(()), label { "← Back to List" } }
                 Spacer { height: VERTICAL_SPACER_HEIGHT }
-                label { font_family: TITLE_FONT_FAMILY, font_size: TITLE_FONT_SIZE, font_weight: TITLE_FONT_WEIGHT, "{story.title.as_deref().unwrap_or(TITLE_PLACEHOLDER)}" }
+                label {
+                    font_family: "{theme.font.serif}",
+                    font_size: "{theme.size.text_xxl}",
+                    font_weight: "bold",
+                    "{story.title.as_deref().unwrap_or(TITLE_PLACEHOLDER)}"
+                }
                 Spacer { height: VERTICAL_SPACER_HEIGHT }
                 if let Some(url) = &story.url {
-                    Link { to: url.clone(), label { font_family: URL_FONT_FAMILY, font_size: URL_FONT_SIZE, color: URL_COLOR, "URL: {url}" } }
+                    Link {
+                        to: url.clone(),
+                        label {
+                            font_family: "{theme.font.mono}",
+                            font_size: "{theme.size.text_l}",
+                            color: "{theme.color.link}",
+                            "URL: {url}"
+                        }
+                    }
                     Spacer { height: VERTICAL_SPACER_HEIGHT }
                 }
+
+                // Story Metadata
                 InfoLine { icon: rsx!{ IconScore {} }, text: format!("Score: {}", story.score.unwrap_or(0)) }
                 Spacer { height: VERTICAL_SPACER_HEIGHT }
                 InfoLine { icon: rsx!{ IconUser {} }, text: format!("By: {}", story.by.as_deref().unwrap_or("N/A")) }
@@ -139,7 +149,12 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                 InfoLine { icon: rsx!{ IconComments {} }, text: format!("Comments: {}", story.descendants.unwrap_or(0)) }
                 Spacer { height: COMMENTS_SECTION_SPACER }
 
-                label { font_size: COMMENTS_TITLE_FONT_SIZE, font_weight: COMMENTS_TITLE_FONT_WEIGHT, "Comments:" }
+                // Comments Section
+                label {
+                    font_size: "{theme.size.text_l}",
+                    font_weight: "bold",
+                    "Comments:"
+                }
                 Spacer { height: "4" }
 
                 if comments_resource.value().read().is_none() {
@@ -230,7 +245,10 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                         },
                     }
                 } else {
-                    label { color: COMMENTS_PLACEHOLDER_COLOR, "No comments to display." }
+                    label {
+                        color: "{theme.color.text_alt}",
+                        "No comments to display."
+                    }
                 }
             }
         }

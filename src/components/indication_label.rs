@@ -1,12 +1,12 @@
+use crate::theme::Theme;
 use freya::prelude::*;
-use std::borrow::Cow;
 
 #[derive(Props, PartialEq, Clone)]
 pub struct IndicationLabelProps {
   #[props(into)]
   pub text: String,
-  #[props(default = Cow::Borrowed("rgb(60, 60, 60)"), into)]
-  pub color: Cow<'static, str>,
+  #[props(default = "rgb(60, 60, 60)".to_string(), into)]
+  pub color: String,
   #[props(default = 16u32, into)]
   pub font_size: u32,
   #[props(default = 10u32, into)]
@@ -15,6 +15,8 @@ pub struct IndicationLabelProps {
 
 #[component]
 pub fn IndicationLabel(props: IndicationLabelProps) -> Element {
+  let theme = use_context::<Theme>();
+
   rsx! {
       rect {
           width: "100%",
@@ -23,7 +25,8 @@ pub fn IndicationLabel(props: IndicationLabelProps) -> Element {
           main_align: "center",
           cross_align: "center",
           label {
-              font_family: "Geist Mono",
+              // Use the sans font for all UI messages.
+              font_family: "{theme.font.sans}",
               font_size: "{props.font_size}",
               color: "{props.color}",
               "{props.text}"

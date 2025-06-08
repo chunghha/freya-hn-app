@@ -8,11 +8,13 @@ use std::sync::Arc;
 // --- Module Declarations ---
 mod components;
 mod models;
+mod theme;
 mod utils;
 
 // --- Imports ---
 use components::{StoryDetailView, StoryListView};
 use models::Story;
+use theme::Theme;
 use utils::api::ApiService;
 
 // --- Application Constants ---
@@ -36,22 +38,24 @@ fn app() -> Element {
   let mut loaded_count: Signal<usize> = use_signal(|| BATCH_SIZE);
   let mut is_loading_more: Signal<bool> = use_signal(|| false);
 
-  // --- Service Instantiation and Context ---
+  // --- Service and Theme Instantiation and Context ---
   let api_service = Arc::new(ApiService::new());
   use_context_provider(|| api_service.clone());
+  // Create and provide the theme to the entire application.
+  let theme = Theme::light();
+  use_context_provider(|| theme.clone());
 
   // --- Hooks ---
   let scroll_controller = use_scroll_controller(ScrollConfig::default);
 
-  // Resource to fetch the initial list of best story IDs.
+  // ... (use_resource and use_effect hooks remain exactly the same) ...
   let best_story_ids_resource = {
-    // Clone the Arc *before* the move closure.
     let api_service = api_service.clone();
     use_resource(move || {
-      let value = api_service.clone();
+      let service = api_service.clone();
       async move {
         info!("Fetching best story IDs...");
-        let result = value.fetch_best_story_ids().await;
+        let result = service.fetch_best_story_ids().await;
         if result.is_ok() {
           info!("Successfully fetched story IDs");
         }
@@ -59,35 +63,25 @@ fn app() -> Element {
       }
     })
   };
-
-  // Resource to fetch story details in batches.
   let _ = {
-    // Clone the Arc again, specifically for this second hook.
     let api_service = api_service.clone();
     use_resource(move || {
       let current_best_ids = best_story_ids_resource.value().read().as_ref().cloned();
       let loaded_count_val = *loaded_count.read();
       let already_loaded = stories_signal.read().len();
-      // This inner clone is for the async block, which is also correct.
       let api_service = api_service.clone();
-
       async move {
         if let Some(Ok(ids)) = current_best_ids {
           if already_loaded < loaded_count_val && already_loaded < ids.len() {
             is_loading_more.set(true);
-
             let ids_to_fetch =
               ids.iter().skip(already_loaded).take(loaded_count_val - already_loaded).cloned().collect::<Vec<_>>();
-
             info!("Fetching {} story details in parallel...", ids_to_fetch.len());
-
             let stories_futures = ids_to_fetch.into_iter().map(|id| {
               let api_service = api_service.clone();
               async move { api_service.fetch_story_content(id).await }
             });
-
             let results = stream::iter(stories_futures).buffer_unordered(10).collect::<Vec<_>>().await;
-
             let mut new_stories = Vec::new();
             for result in results {
               match result {
@@ -99,26 +93,21 @@ fn app() -> Element {
                 }
               }
             }
-
             if !new_stories.is_empty() {
               stories_signal.write().extend(new_stories);
             }
-
             is_loading_more.set(false);
           }
         }
       }
     })
   };
-
-  // Effect for infinite scrolling.
   use_effect(move || {
     let y = scroll_controller.y();
     let layout = scroll_controller.layout();
     let y_val = *y.read();
     let layout_val = layout.read();
     let end = layout_val.inner.height - layout_val.area.height();
-
     if !*is_loading_more.read()
       && layout_val.inner.height > layout_val.area.height()
       && -y_val > end as i32 - SCROLL_END_MARGIN
@@ -140,24 +129,24 @@ fn app() -> Element {
           width: "100%",
           height: "100%",
           direction: "vertical",
-          background: "rgb(246, 246, 239)",
-          color: "black",
+          background: "{theme.color.background_page}",
+          color: "{theme.color.base}",
           padding: "10",
 
           // Header
           rect {
               width: "100%",
               height: "50",
-              background: "rgb(255, 102, 0)",
+              background: "{theme.color.accent}",
               direction: "horizontal",
               main_align: "center",
               cross_align: "center",
               padding: "10",
               label {
-                  font_family: "IBM Plex Mono",
-                  font_size: "24",
+                  font_family: "{theme.font.mono}",
+                  font_size: "{theme.size.text_header}",
                   font_weight: "bold",
-                  color: "white",
+                  color: "{theme.color.accent_text}",
                   "Hacker News Best Stories"
               }
           }
