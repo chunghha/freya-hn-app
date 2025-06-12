@@ -2,6 +2,7 @@ use crate::components::primitives::Spacer;
 use crate::theme::Theme;
 use freya::prelude::*;
 
+/// A view to display when no story is selected.
 #[derive(Props, PartialEq, Clone, Copy)]
 pub struct NoStorySelectedViewProps {
   pub on_back: EventHandler<()>,
@@ -9,8 +10,8 @@ pub struct NoStorySelectedViewProps {
 
 #[component]
 pub fn NoStorySelectedView(props: NoStorySelectedViewProps) -> Element {
-  let theme = use_context::<Theme>();
-
+  let theme_signal = use_context::<Signal<Theme>>();
+  let theme = theme_signal.read();
   rsx! {
       rect {
           width: "100%",
@@ -24,11 +25,16 @@ pub fn NoStorySelectedView(props: NoStorySelectedViewProps) -> Element {
               "No story selected or data is missing."
           }
           Spacer { height: "15" }
-          Button {
+          rect {
               onclick: move |_| props.on_back.call(()),
+              background: "{theme.color.background_page}",
+              border: "1 solid {theme.color.border}",
+              padding: "6 10",
+              corner_radius: "6",
               label {
-                  // Use sans font for button text.
                   font_family: "{theme.font.sans}",
+                  font_size: "{theme.size.text_m}",
+                  color: "{theme.color.text}",
                   "← Back to List"
               }
           }

@@ -13,11 +13,7 @@ use log::info;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-// REMOVED: The local, unused fetch_comment_content function is now gone.
-
 // --- Local Components ---
-
-/// A recursive component responsible for rendering a list of comments and their children.
 #[component]
 fn RenderComments(
   comment_ids: Vec<u32>,
@@ -67,21 +63,18 @@ fn RenderComments(
 }
 
 // --- Main Component ---
-
 #[component]
 pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<()>) -> Element {
-  // --- Theme and Service from Context ---
-  let theme = use_context::<Theme>();
+  let theme_signal = use_context::<Signal<Theme>>();
+  let theme = theme_signal.read();
   let api_service = use_context::<Arc<ApiService>>();
 
-  // --- Layout Constants ---
   const SKELETON_COUNT: usize = 5;
   const DETAIL_PADDING: &str = "15";
   const VERTICAL_SPACER_HEIGHT: &str = "12";
   const COMMENTS_SECTION_SPACER: &str = "20";
   const TITLE_PLACEHOLDER: &str = "[No Title]";
 
-  // --- State and Hooks ---
   let mut all_comments: Signal<HashMap<u32, Comment>> = use_signal(HashMap::new);
 
   let comments_resource = use_resource({
@@ -105,7 +98,6 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
     }
   });
 
-  // --- Render Logic ---
   if let Some(story) = story_data.read().as_ref() {
     rsx! {
         ScrollView {
@@ -120,7 +112,19 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                 background: "{theme.color.background_card}",
 
                 // Story Header
-                Button { onclick: move |_| on_back.call(()), label { "← Back to List" } }
+                rect {
+                    onclick: move |_| on_back.call(()),
+                    background: "{theme.color.background_page}",
+                    border: "1 solid {theme.color.border}",
+                    padding: "6 10",
+                    corner_radius: "6",
+                    label {
+                        font_family: "{theme.font.sans}",
+                        font_size: "{theme.size.text_m}",
+                        color: "{theme.color.text}",
+                        "← Back to List"
+                    }
+                }
                 Spacer { height: VERTICAL_SPACER_HEIGHT }
                 label {
                     font_family: "{theme.font.serif}",
@@ -162,7 +166,6 @@ pub fn StoryDetailView(story_data: Signal<Option<Story>>, on_back: EventHandler<
                 }
                 Spacer { height: "4" }
 
-                // Conditional rendering for the comment list.
                 if comments_resource.value().read().is_none() {
                     Fragment {
                         {

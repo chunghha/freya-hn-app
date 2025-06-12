@@ -14,11 +14,12 @@ mod utils;
 // --- Imports ---
 use components::{
   StoryDetailView, StoryListView, StoryTab,
+  icons::{IconMoon, IconSun},
   primitives::{IconButton, Spacer},
 };
 use freya::prelude::{ScrollDirection, ScrollPosition};
 use models::Story;
-use theme::Theme;
+use theme::{Theme, ThemeMode};
 use utils::api::{ApiService, StoryListType};
 
 // --- Application Constants ---
@@ -43,12 +44,23 @@ fn app() -> Element {
   let mut loaded_count: Signal<usize> = use_signal(|| BATCH_SIZE);
   let mut is_loading_more: Signal<bool> = use_signal(|| false);
   let mut current_list_type = use_signal(|| StoryListType::Best);
+  let mut theme_mode = use_signal(|| ThemeMode::Light);
 
   // --- Service and Theme Instantiation and Context ---
   let api_service = Arc::new(ApiService::new());
   use_context_provider(|| api_service.clone());
-  let theme = Theme::light();
-  use_context_provider(|| theme.clone());
+
+  let mut theme_signal = use_signal(Theme::light);
+  use_context_provider(|| theme_signal);
+
+  // This makes the `theme_mode` signal available to all children.
+  use_context_provider(|| theme_mode);
+
+  // This effect will update the theme_signal whenever theme_mode changes.
+  use_effect(move || {
+    let new_theme = if *theme_mode.read() == ThemeMode::Light { Theme::light() } else { Theme::dark() };
+    theme_signal.set(new_theme);
+  });
 
   // --- Hooks ---
   let mut scroll_controller = use_scroll_controller(ScrollConfig::default);
@@ -140,6 +152,7 @@ fn app() -> Element {
   });
 
   // --- Render ---
+  let theme = theme_signal.read();
   rsx! {
       rect {
           width: "100%",
@@ -161,19 +174,52 @@ fn app() -> Element {
               rect {
                   direction: "horizontal",
                   cross_align: "center",
-                  label { font_family: "{theme.font.mono}", font_size: "{theme.size.text_header}", font_weight: "bold", color: "{theme.color.accent_text}", "Hacker News" }
+                  label {
+                      font_family: "{theme.font.mono}",
+                      font_size: "{theme.size.text_header}",
+                      font_weight: "{theme.font_weight.bold}",
+                      color: "{theme.color.accent_text}",
+                      "Hacker News"
+                  }
                   Spacer { width: "12" }
-                  label { font_family: "{theme.font.mono}", font_size: "{theme.size.text_s}", color: "{theme.color.accent_text}", "v{APP_VERSION}" }
+                  label {
+                      font_family: "{theme.font.mono}",
+                      font_size: "{theme.size.text_s}",
+                      color: "{theme.color.accent_text}",
+                      "v{APP_VERSION}"
+                  }
               }
-              if story_ids_resource.value().read().is_none() {
-                  label { font_size: "{theme.size.text_xl}", "⏳" }
-              } else {
+              rect {
+                  direction: "horizontal",
+                  cross_align: "center",
                   IconButton {
                       onclick: move |_| {
-                          info!("Refreshing story list...");
-                          story_ids_resource.restart();
+                          let new_mode = if *theme_mode.read() == ThemeMode::Light {
+                              ThemeMode::Dark
+                          } else {
+                              ThemeMode::Light
+                          };
+                          theme_mode.set(new_mode);
                       },
-                      icon: rsx! { label { font_size: "{theme.size.text_xl}", color: "{theme.color.accent_text}", "🔄" } }
+                      icon: rsx! {
+                          if *theme_mode.read() == ThemeMode::Light {
+                              IconMoon {}
+                          } else {
+                              IconSun {}
+                          }
+                      }
+                  }
+                  Spacer { width: "8" }
+                  if story_ids_resource.value().read().is_none() {
+                      label { font_size: "{theme.size.text_xl}", "⏳" }
+                  } else {
+                      IconButton {
+                          onclick: move |_| {
+                              info!("Refreshing story list...");
+                              story_ids_resource.restart();
+                          },
+                          icon: rsx! { label { font_size: "{theme.size.text_xl}", color: "{theme.color.accent_text}", "🔄" } }
+                      }
                   }
               }
           }
@@ -182,7 +228,7 @@ fn app() -> Element {
           if *current_view.read() == CurrentView::List {
               rect {
                   width: "100%",
-                  height: "100%", // Take up remaining space
+                  height: "100%",
                   direction: "vertical",
 
                   // Tabs for selecting the story list type
@@ -193,7 +239,7 @@ fn app() -> Element {
                       padding: "6",
                       background: "{theme.color.background_card}",
                       main_align: "space-around",
-                      border: "1 solid rgb(230, 230, 230)",
+                      border: "1 solid {theme.color.border}",
                       corner_radius: "6",
 
                       for list_type in [StoryListType::Best, StoryListType::Top, StoryListType::New, StoryListType::Ask, StoryListType::Show, StoryListType::Job] {

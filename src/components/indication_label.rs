@@ -15,7 +15,8 @@ pub struct IndicationLabelProps {
 
 #[component]
 pub fn IndicationLabel(props: IndicationLabelProps) -> Element {
-  let theme = use_context::<Theme>();
+  let theme_signal = use_context::<Signal<Theme>>();
+  let theme = theme_signal.read();
 
   rsx! {
       rect {
@@ -25,7 +26,6 @@ pub fn IndicationLabel(props: IndicationLabelProps) -> Element {
           main_align: "center",
           cross_align: "center",
           label {
-              // Use the sans font for all UI messages.
               font_family: "{theme.font.sans}",
               font_size: "{props.font_size}",
               color: "{props.color}",

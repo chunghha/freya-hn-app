@@ -11,7 +11,9 @@ pub struct FooterLabelProps {
 
 #[component]
 pub fn FooterLabel(props: FooterLabelProps) -> Element {
-  let theme = use_context::<Theme>();
+  let theme_signal = use_context::<Signal<Theme>>();
+  let theme = theme_signal.read();
+
   const ICON_TEXT_SPACING: &str = "4";
 
   rsx! {
@@ -25,7 +27,6 @@ pub fn FooterLabel(props: FooterLabelProps) -> Element {
               }
           }
           label {
-              // Use the sans font for all metadata.
               font_family: "{theme.font.sans}",
               font_size: "{theme.size.text_s}",
               color: "{theme.color.text}",

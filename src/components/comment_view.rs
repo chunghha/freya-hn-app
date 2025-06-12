@@ -16,7 +16,8 @@ pub struct CommentViewProps {
 
 #[component]
 pub fn CommentView(props: CommentViewProps) -> Element {
-  let theme = use_context::<Theme>();
+  let theme_signal = use_context::<Signal<Theme>>();
+  let theme = theme_signal.read();
   let comment = &props.comment;
   let has_kids = comment.kids.as_ref().is_some_and(|k| !k.is_empty());
   let comment_id = comment.id;
@@ -45,17 +46,22 @@ pub fn CommentView(props: CommentViewProps) -> Element {
           direction: "vertical",
           width: "100%",
           padding: "8 0 8 {padding_left}",
-          border: "1 solid rgb(235, 235, 235)",
+          border: "1 solid {theme.color.border}",
 
           rect {
               direction: "horizontal",
               cross_align: "center",
               if has_kids {
-                  Button {
+                  rect {
                       onclick: move |_| props.on_toggle_expand.call(comment_id),
+                      background: "{theme.color.background_page}",
+                      border: "1 solid {theme.color.border}",
+                      padding: "2 6",
+                      corner_radius: "4",
                       label {
                           font_family: "{theme.font.sans}",
                           font_size: "{theme.size.text_xs}",
+                          color: "{theme.color.text_alt}",
                           if fetch_state == FetchState::Loading {
                               "⏳"
                           } else if *comment.is_expanded.read() {
@@ -100,7 +106,6 @@ pub fn CommentView(props: CommentViewProps) -> Element {
           Spacer { height: "6" }
 
           label {
-              // Use sans font and the new, larger size for comment bodies.
               font_family: "{theme.font.sans}",
               font_size: "{theme.size.text_l}",
               color: if comment.deleted { "{theme.color.text_alt}" } else { "{theme.color.text}" },
@@ -116,11 +121,16 @@ pub fn CommentView(props: CommentViewProps) -> Element {
                       rect {
                           direction: "horizontal",
                           cross_align: "center",
+                          padding: "4 0",
                           label { font_family: "{theme.font.sans}", color: "red", "Failed to load replies." }
                           Spacer { width: "8" }
+                          // This can remain a default Button as it's simple.
                           Button {
                               onclick: move |_| props.on_retry_fetch.call(comment_id),
-                              label { font_family: "{theme.font.sans}", "Retry" }
+                              label {
+                                  font_family: "{theme.font.sans}",
+                                  "Retry"
+                              }
                           }
                       }
                   },

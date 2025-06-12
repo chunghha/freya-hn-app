@@ -10,7 +10,9 @@ pub struct InfoLineProps {
 
 #[component]
 pub fn InfoLine(props: InfoLineProps) -> Element {
-  let theme = use_context::<Theme>();
+  let theme_signal = use_context::<Signal<Theme>>();
+  let theme = theme_signal.read();
+
   const ICON_TEXT_SPACING: &str = "8";
 
   rsx! {
@@ -21,7 +23,6 @@ pub fn InfoLine(props: InfoLineProps) -> Element {
           {props.icon}
           Spacer { width: ICON_TEXT_SPACING }
           label {
-              // Use the sans font for all metadata.
               font_family: "{theme.font.sans}",
               font_size: "{theme.size.text_m}",
               color: "{theme.color.text}",

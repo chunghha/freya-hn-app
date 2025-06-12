@@ -11,14 +11,13 @@ pub struct StoryCardProps {
 
 #[component]
 pub fn StoryCard(props: StoryCardProps) -> Element {
-  // Consume the theme from the context.
-  let theme = use_context::<Theme>();
+  let theme_signal = use_context::<Signal<Theme>>();
+  let theme = theme_signal.read();
 
-  // All local style constants are now removed.
-  const CARD_PADDING: &str = "12 16";
   const CARD_MARGIN: &str = "0 0 8 0";
   const CARD_CORNER_RADIUS: &str = "8";
   const CARD_SHADOW: &str = "0 2 8 0 rgb(0,0,0,0.1)";
+  const CARD_PADDING: &str = "12 16";
 
   let story_id = props.story.id;
 
